@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole, Language } from '../types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { ArrowLeft, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { LanguageSelector } from './LanguageSelector';
 import { getTranslation } from '../utils/translations';
 import { validateOTP, mockPatients, mockASHAWorkers, mockDoctors, mockPharmacists } from '../utils/mockData';
@@ -26,7 +26,6 @@ export const OTPLogin: React.FC<OTPLoginProps> = ({
   onBack,
   onLogin
 }) => {
-  const [step, setStep] = useState<'id' | 'otp'>('id');
   const [userId, setUserId] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -80,48 +79,32 @@ export const OTPLogin: React.FC<OTPLoginProps> = ({
 
   const config = roleConfig[role];
 
-  const handleSendOTP = async () => {
-    if (!userId.trim()) return;
-    
+  // Auto-fill first available user + demo OTP
+  useEffect(() => {
+    if (config.users.length > 0) {
+      setUserId(config.users[0][config.idField as keyof typeof config.users[0]] as string);
+      setOtp('123456');
+    }
+  }, [role]);
+
+  const handleLogin = async () => {
+    if (!userId.trim() || !otp.trim()) return;
     setLoading(true);
-    
-    // Check if user exists first
+
     setTimeout(() => {
-      const user = config.users.find(u => 
-        u[config.idField as keyof typeof u] === userId
+      const user = config.users.find(
+        (u) => u[config.idField as keyof typeof u] === userId
       );
-      
+
       if (!user) {
-        toast.error(t('userNotFound'));
+        toast.error(`${config.idLabel} not found`);
         setLoading(false);
         return;
       }
-      
-      setStep('otp');
-      setLoading(false);
-      toast.success(t('otpSent'));
-    }, 1000);
-  };
 
-  const handleVerifyOTP = async () => {
-    if (!otp.trim()) return;
-    
-    setLoading(true);
-    
-    // Simulate OTP verification
-    setTimeout(() => {
       if (validateOTP(userId, otp)) {
-        // Find user by ID
-        const user = config.users.find(u => 
-          u[config.idField as keyof typeof u] === userId
-        );
-        
-        if (user) {
-          onLogin(user);
-          toast.success(t('success'));
-        } else {
-          toast.error('User not found');
-        }
+        onLogin(user);
+        toast.success(t('success'));
       } else {
         toast.error(t('invalidOtp'));
       }
@@ -153,72 +136,49 @@ export const OTPLogin: React.FC<OTPLoginProps> = ({
             </div>
             <CardTitle>{t('login')}</CardTitle>
             <CardDescription>
-              {step === 'id' ? `Enter your ${config.idLabel}` : t('enterOtp')}
+              {t('enterIdAndOtp')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {step === 'id' ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="userId">{config.idLabel}</Label>
-                  <Input
-                    id="userId"
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    placeholder={config.placeholder}
-                    className="text-center"
-                  />
-                </div>
-                <Button 
-                  onClick={handleSendOTP}
-                  disabled={!userId.trim() || loading}
-                  className="w-full"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Send className="w-4 h-4 mr-2" />
-                  )}
-                  Send OTP
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="otp">{t('enterOtp')}</Label>
-                  <Input
-                    id="otp"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="123456"
-                    className="text-center tracking-widest"
-                    maxLength={6}
-                  />
-                  <p className="text-xs text-gray-500 text-center">
-                    Use 123456 for demo
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setStep('id')}
-                    className="flex-1"
-                  >
-                    {t('back')}
-                  </Button>
-                  <Button 
-                    onClick={handleVerifyOTP}
-                    disabled={otp.length !== 6 || loading}
-                    className="flex-1"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : null}
-                    {t('login')}
-                  </Button>
-                </div>
-              </>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="userId">{config.idLabel}</Label>
+              <Input
+                id="userId"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder={config.placeholder}
+                className="text-center"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="otp">{t('enterOtp')}</Label>
+              <Input
+                id="otp"
+                value={otp}
+                onChange={(e) =>
+                  setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }
+                placeholder="123456"
+                className="text-center tracking-widest"
+                maxLength={6}
+              />
+              <p className="text-xs text-gray-500 text-center">
+                Use 123456 for demo
+              </p>
+            </div>
+
+            <Button 
+              onClick={handleLogin}
+              disabled={!userId.trim() || otp.length !== 6 || loading}
+              className="w-full"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : null}
+              {t('login')}
+            </Button>
           </CardContent>
         </Card>
 
