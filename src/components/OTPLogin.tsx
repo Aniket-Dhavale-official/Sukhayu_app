@@ -33,45 +33,45 @@ export const OTPLogin: React.FC<OTPLoginProps> = ({
   const t = (key: string) => getTranslation(key, language);
 
   const roleConfig = {
-    patient: { 
-      idLabel: t('patientId'), 
-      placeholder: 'P001', 
+    patient: {
+      idLabel: t('patientId'),
+      placeholder: 'P001',
       users: mockPatients,
       idField: 'patientId'
     },
-    asha: { 
-      idLabel: t('ashaWorkerId'), 
-      placeholder: 'A001', 
+    asha: {
+      idLabel: t('ashaWorkerId'),
+      placeholder: 'A001',
       users: mockASHAWorkers,
       idField: 'ashaWorkerId'
     },
-    cho: { 
-      idLabel: 'CHO ID', 
-      placeholder: 'CHO001', 
+    cho: {
+      idLabel: 'CHO ID',
+      placeholder: 'CHO001',
       users: mockDoctors.filter(d => d.role === 'cho'),
       idField: 'doctorId'
     },
-    mo: { 
-      idLabel: 'MO ID', 
-      placeholder: 'MO001', 
+    mo: {
+      idLabel: 'MO ID',
+      placeholder: 'MO001',
       users: mockDoctors.filter(d => d.role === 'mo'),
       idField: 'doctorId'
     },
-    civil_doctor: { 
-      idLabel: 'Doctor ID', 
-      placeholder: 'CD001', 
+    civil_doctor: {
+      idLabel: 'Doctor ID',
+      placeholder: 'CD001',
       users: mockDoctors.filter(d => d.role === 'civil_doctor'),
       idField: 'doctorId'
     },
-    emergency_doctor: { 
-      idLabel: 'Emergency Doctor ID', 
-      placeholder: 'ED001', 
+    emergency_doctor: {
+      idLabel: 'Emergency Doctor ID',
+      placeholder: 'ED001',
       users: mockDoctors.filter(d => d.role === 'emergency_doctor'),
       idField: 'doctorId'
     },
-    pharmacist: { 
-      idLabel: 'License Number', 
-      placeholder: 'PH001', 
+    pharmacist: {
+      idLabel: 'License Number',
+      placeholder: 'PH001',
       users: mockPharmacists,
       idField: 'licenseNumber'
     }
@@ -122,7 +122,7 @@ export const OTPLogin: React.FC<OTPLoginProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </Button>
           {showLanguageSelector && (
-            <LanguageSelector 
+            <LanguageSelector
               currentLanguage={language}
               onLanguageChange={onLanguageChange}
             />
@@ -169,7 +169,7 @@ export const OTPLogin: React.FC<OTPLoginProps> = ({
               </p>
             </div>
 
-            <Button 
+            <Button
               onClick={handleLogin}
               disabled={!userId.trim() || otp.length !== 6 || loading}
               className="w-full"

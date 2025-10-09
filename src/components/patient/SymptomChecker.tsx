@@ -40,13 +40,13 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
   const [conversationStep, setConversationStep] = useState(0);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
-  const [currentQuestions, setCurrentQuestions] = useState<Array<{question: Record<Language, string>, options?: Record<Language, string[]>}>>([]);
+  const [currentQuestions, setCurrentQuestions] = useState<Array<{ question: Record<Language, string>, options?: Record<Language, string[]> }>>([]);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Dynamic question database based on symptoms
-  const getQuestionsForSymptoms = (symptoms: string): Array<{question: Record<Language, string>, options?: Record<Language, string[]>}> => {
+  const getQuestionsForSymptoms = (symptoms: string): Array<{ question: Record<Language, string>, options?: Record<Language, string[]> }> => {
     const symptomLower = symptoms.toLowerCase();
     const baseQuestions = [
       {
@@ -59,7 +59,7 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
       }
     ];
 
-    const questions: Array<{question: Record<Language, string>, options?: Record<Language, string[]>}> = [...baseQuestions];
+    const questions: Array<{ question: Record<Language, string>, options?: Record<Language, string[]> }> = [...baseQuestions];
 
     // Add specific questions based on symptoms mentioned
     if (symptomLower.includes('fever') || symptomLower.includes('बुखार') || symptomLower.includes('ताप') || symptomLower.includes('ਬੁਖ਼ਾਰ')) {
@@ -162,13 +162,13 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
       const initialMessage = {
         type: 'bot' as const,
         content: language === 'hi' ? 'नमस्ते! मैं आपका AI स्वास्थ्य सहायक हूं। मैं आपके लक्षणों की जांच करके उचित सलाह दूंगा।' :
-                 language === 'mr' ? 'नमस्कार! मी तुमचा AI आरोग्य सहायक आहे. मी तुमच्या लक्षणांची तपासणी करून योग्य सल्ला देईन.' :
-                 language === 'pa' ? 'ਨਮਸਤੇ! ਮੈਂ ਤੁਹਾਡਾ AI ਸਿਹਤ ਸਹਾਇਕ ਹਾਂ। ਮੈਂ ਤੁਹਾਡੇ ਲੱਛਣਾਂ ਦੀ ਜਾਂਚ ਕਰਕੇ ਸਹੀ ਸਲਾਹ ਦਿਆਂਗਾ।' :
-                 'Hello! I\'m your AI health assistant. I\'ll analyze your symptoms and provide appropriate guidance.',
+          language === 'mr' ? 'नमस्कार! मी तुमचा AI आरोग्य सहायक आहे. मी तुमच्या लक्षणांची तपासणी करून योग्य सल्ला देईन.' :
+            language === 'pa' ? 'ਨਮਸਤੇ! ਮੈਂ ਤੁਹਾਡਾ AI ਸਿਹਤ ਸਹਾਇਕ ਹਾਂ। ਮੈਂ ਤੁਹਾਡੇ ਲੱਛਣਾਂ ਦੀ ਜਾਂਚ ਕਰਕੇ ਸਹੀ ਸਲਾਹ ਦਿਆਂਗਾ।' :
+              'Hello! I\'m your AI health assistant. I\'ll analyze your symptoms and provide appropriate guidance.',
         timestamp: new Date()
       };
       setMessages([initialMessage]);
-      
+
       // Initialize with first question
       setTimeout(() => {
         const firstQuestions = getQuestionsForSymptoms('');
@@ -195,6 +195,50 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleOptionClick = async (option: string) => {
+    if (isAnalyzing) return;
+
+    // Add user message
+    const userMessage: ChatMessage = {
+      type: 'user',
+      content: option,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
+    // Store the answer
+    const userAnswers = [...selectedOptions, option];
+    setSelectedOptions(userAnswers);
+
+    setIsAnalyzing(true);
+
+    // Simulate AI processing
+    setTimeout(() => {
+      // If first question (about main symptoms), generate dynamic questions
+      if (conversationStep === 0) {
+        const dynamicQuestions = getQuestionsForSymptoms(option);
+        setCurrentQuestions(dynamicQuestions);
+      }
+
+      if (conversationStep < Math.min(currentQuestions.length - 1, 5)) {
+        // Continue conversation (max 6 questions including initial)
+        const nextStep = conversationStep + 1;
+        const botResponse: ChatMessage = {
+          type: 'bot',
+          content: currentQuestions[nextStep].question[language],
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botResponse]);
+        setConversationStep(nextStep);
+      } else {
+        // Final analysis after collecting enough information
+        performAnalysis();
+      }
+      setIsAnalyzing(false);
+    }, 1500);
+  };
+
   const handleSendMessage = async () => {
     if (!currentInput.trim() && uploadedImages.length === 0) return;
 
@@ -206,11 +250,11 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
     };
 
     setMessages(prev => [...prev, userMessage]);
-    
+
     // Store the answer
     const userAnswers = [...selectedOptions, currentInput];
     setSelectedOptions(userAnswers);
-    
+
     setCurrentInput('');
     setIsAnalyzing(true);
 
@@ -246,7 +290,7 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
   // Comprehensive medical condition database with zoning
   const getConditionAnalysis = (symptoms: string, answers: string[]): AnalysisResult => {
     const allText = (symptoms + ' ' + answers.join(' ')).toLowerCase();
-    
+
     // Red Zone - Emergency conditions
     const redZoneConditions = [
       {
@@ -386,23 +430,23 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
           condition: condition.condition[language],
           severity: 'red' as SeverityZone,
           response: language === 'hi' ? 'तुरंत आपातकालीन चिकित्सा सहायता लें।' :
-                   language === 'mr' ? 'ताबडतोब आपत्कालीन वैद्यकीय मदत घ्या.' :
-                   language === 'pa' ? 'ਤੁਰੰਤ ਐਮਰਜੈਂਸੀ ਮੈਡੀਕਲ ਮਦਦ ਲਓ।' :
-                   'Seek immediate emergency medical help.',
+            language === 'mr' ? 'ताबडतोब आपत्कालीन वैद्यकीय मदत घ्या.' :
+              language === 'pa' ? 'ਤੁਰੰਤ ਐਮਰਜੈਂਸੀ ਮੈਡੀਕਲ ਮਦਦ ਲਓ।' :
+                'Seek immediate emergency medical help.',
           doctorType: condition.doctorType,
           recommendations: [
             language === 'hi' ? 'तुरंत 102 पर कॉल करें' :
-            language === 'mr' ? 'ताबडतोब 102 वर कॉल करा' :
-            language === 'pa' ? 'ਤੁਰੰਤ 102 ਤੇ ਕਾਲ ਕਰੋ' :
-            'Call 102 immediately',
+              language === 'mr' ? 'ताबडतोब 102 वर कॉल करा' :
+                language === 'pa' ? 'ਤੁਰੰਤ 102 ਤੇ ਕਾਲ ਕਰੋ' :
+                  'Call 102 immediately',
             language === 'hi' ? 'निकटतम अस्पताल जाएं' :
-            language === 'mr' ? 'जवळच्या रुग्णालयात जा' :
-            language === 'pa' ? 'ਨੇੜਲੇ ਹਸਪਤਾਲ ਜਾਓ' :
-            'Go to nearest hospital',
+              language === 'mr' ? 'जवळच्या रुग्णालयात जा' :
+                language === 'pa' ? 'ਨੇੜਲੇ ਹਸਪਤਾਲ ਜਾਓ' :
+                  'Go to nearest hospital',
             language === 'hi' ? 'किसी को साथ रखें' :
-            language === 'mr' ? 'कोणाला सोबत ठेवा' :
-            language === 'pa' ? 'ਕਿਸੇ ਨੂੰ ਨਾਲ ਰੱਖੋ' :
-            'Keep someone with you'
+              language === 'mr' ? 'कोणाला सोबत ठेवा' :
+                language === 'pa' ? 'ਕਿਸੇ ਨੂੰ ਨਾਲ ਰੱਖੋ' :
+                  'Keep someone with you'
           ]
         };
       }
@@ -415,23 +459,23 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
           condition: condition.condition[language],
           severity: 'orange' as SeverityZone,
           response: language === 'hi' ? '24 घंटे के भीतर डॉक्टर से मिलें।' :
-                   language === 'mr' ? '24 तासांच्या आत डॉक्टरांना भेटा.' :
-                   language === 'pa' ? '24 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ।' :
-                   'See a doctor within 24 hours.',
+            language === 'mr' ? '24 तासांच्या आत डॉक्टरांना भेटा.' :
+              language === 'pa' ? '24 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ।' :
+                'See a doctor within 24 hours.',
           doctorType: condition.doctorType,
           recommendations: [
             language === 'hi' ? 'तुरंत डॉक्टर से संपर्क करें' :
-            language === 'mr' ? 'ताबडतोब डॉक्टरांशी संपर्क करा' :
-            language === 'pa' ? 'ਤੁਰੰਤ ਡਾਕਟਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ' :
-            'Contact doctor immediately',
+              language === 'mr' ? 'ताबडतोब डॉक्टरांशी संपर्क करा' :
+                language === 'pa' ? 'ਤੁਰੰਤ ਡਾਕਟਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ' :
+                  'Contact doctor immediately',
             language === 'hi' ? 'आराम करें और तरल पदार्थ लें' :
-            language === 'mr' ? 'आराम करा आणि द्रव पदार्थ घ्या' :
-            language === 'pa' ? 'ਆਰਾਮ ਕਰੋ ਅਤੇ ਤਰਲ ਪਦਾਰਥ ਲਓ' :
-            'Rest and take fluids',
+              language === 'mr' ? 'आराम करा आणि द्रव पदार्थ घ्या' :
+                language === 'pa' ? 'ਆਰਾਮ ਕਰੋ ਅਤੇ ਤਰਲ ਪਦਾਰਥ ਲਓ' :
+                  'Rest and take fluids',
             language === 'hi' ? 'लक्षणों पर निगरानी रखें' :
-            language === 'mr' ? 'लक्षणांवर निरीक्षण ठेवा' :
-            language === 'pa' ? 'ਲੱਛਣਾਂ ਤੇ ਨਿਗਰਾਨੀ ਰੱਖੋ' :
-            'Monitor symptoms closely'
+              language === 'mr' ? 'लक्षणांवर निरीक्षण ठेवा' :
+                language === 'pa' ? 'ਲੱਛਣਾਂ ਤੇ ਨਿਗਰਾਨੀ ਰੱਖੋ' :
+                  'Monitor symptoms closely'
           ]
         };
       }
@@ -444,53 +488,53 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
           condition: condition.condition[language],
           severity: 'yellow' as SeverityZone,
           response: language === 'hi' ? '2-3 दिन में डॉक्टर से मिलें।' :
-                   language === 'mr' ? '2-3 दिवसांत डॉक्टरांना भेटा.' :
-                   language === 'pa' ? '2-3 ਦਿਨਾਂ ਵਿੱਚ ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ।' :
-                   'See a doctor within 2-3 days.',
+            language === 'mr' ? '2-3 दिवसांत डॉक्टरांना भेटा.' :
+              language === 'pa' ? '2-3 ਦਿਨਾਂ ਵਿੱਚ ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ।' :
+                'See a doctor within 2-3 days.',
           doctorType: condition.doctorType,
           recommendations: [
             language === 'hi' ? 'पर्याप्त आराम करें' :
-            language === 'mr' ? 'पुरेसा आराम करा' :
-            language === 'pa' ? 'ਲੋੜੀਂਦਾ ਆਰਾਮ ਕਰੋ' :
-            'Get adequate rest',
+              language === 'mr' ? 'पुरेसा आराम करा' :
+                language === 'pa' ? 'ਲੋੜੀਂਦਾ ਆਰਾਮ ਕਰੋ' :
+                  'Get adequate rest',
             language === 'hi' ? 'तरल पदार्थ अधिक लें' :
-            language === 'mr' ? 'द्रव पदार्थ जास्त घ्या' :
-            language === 'pa' ? 'ਤਰਲ ਪਦਾਰਥ ਜ਼ਿਆਦਾ ਲਓ' :
-            'Increase fluid intake',
+              language === 'mr' ? 'द्रव पदार्थ जास्त घ्या' :
+                language === 'pa' ? 'ਤਰਲ ਪਦਾਰਥ ਜ਼ਿਆਦਾ ਲਓ' :
+                  'Increase fluid intake',
             language === 'hi' ? 'स्वच्छता बनाए रखें' :
-            language === 'mr' ? 'स्वच्छता राखा' :
-            language === 'pa' ? 'ਸਫ਼ਾਈ ਬਣਾਈ ਰੱਖੋ' :
-            'Maintain hygiene'
+              language === 'mr' ? 'स्वच्छता राखा' :
+                language === 'pa' ? 'ਸਫ਼ਾਈ ਬਣਾਈ ਰੱਖੋ' :
+                  'Maintain hygiene'
           ]
         };
       }
     }
 
-    // Default to Green Zone
+    // Default to Yellow Zone
     return {
       condition: language === 'hi' ? 'सामान्य स्वास्थ्य जांच आवश्यक' :
-                 language === 'mr' ? 'सामान्य आरोग्य तपासणी आवश्यक' :
-                 language === 'pa' ? 'ਆਮ ਸਿਹਤ ਜਾਂਚ ਲੋੜੀਂਦੀ' :
-                 'General Health Check Required',
-      severity: 'green' as SeverityZone,
-      response: language === 'hi' ? 'घरेलू उपचार और आराम करें। आवश्यकता हो तो डॉक्टर से मिलें।' :
-                language === 'mr' ? 'घरगुती उपचार आणि आराम करा. गरज भासल्यास डॉक्टरांना भेटा.' :
-                language === 'pa' ? 'ਘਰੇਲੂ ਇਲਾਜ ਅਤੇ ਆਰਾਮ ਕਰੋ। ਲੋੜ ਹੋਵੇ ਤਾਂ ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ।' :
-                'Home care and rest. See doctor if needed.',
+        language === 'mr' ? 'सामान्य आरोग्य तपासणी आवश्यक' :
+          language === 'pa' ? 'ਆਮ ਸਿਹਤ ਜਾਂਚ ਲੋੜੀਂਦੀ' :
+            'General Health Check Required',
+      severity: 'yellow' as SeverityZone,
+      response: language === 'hi' ? '2-3 दिन में डॉक्टर से मिलें।' :
+        language === 'mr' ? '2-3 दिवसांत डॉक्टरांना भेटा.' :
+          language === 'pa' ? '2-3 ਦਿਨਾਂ ਵਿੱਚ ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ।' :
+            'See a doctor within 2-3 days.',
       doctorType: 'cho',
       recommendations: [
         language === 'hi' ? 'नियमित व्यायाम कर���ं' :
-        language === 'mr' ? 'नियमित व्यायाम करा' :
-        language === 'pa' ? 'ਨਿਯਮਿਤ ਕਸਰਤ ਕਰੋ' :
-        'Regular exercise',
+          language === 'mr' ? 'नियमित व्यायाम करा' :
+            language === 'pa' ? 'ਨਿਯਮਿਤ ਕਸਰਤ ਕਰੋ' :
+              'Regular exercise',
         language === 'hi' ? 'संतुलित आहार लें' :
-        language === 'mr' ? 'संतुलित आहार घ्या' :
-        language === 'pa' ? 'ਸੰਤੁਲਿਤ ਖੁਰਾਕ ਲਓ' :
-        'Balanced diet',
+          language === 'mr' ? 'संतुलित आहार घ्या' :
+            language === 'pa' ? 'ਸੰਤੁਲਿਤ ਖੁਰਾਕ ਲਓ' :
+              'Balanced diet',
         language === 'hi' ? 'तनाव कम करें' :
-        language === 'mr' ? 'तणाव कमी करा' :
-        language === 'pa' ? 'ਤਣਾਅ ਘੱਟ ਕਰੋ' :
-        'Reduce stress'
+          language === 'mr' ? 'तणाव कमी करा' :
+            language === 'pa' ? 'ਤਣਾਅ ਘੱਟ ਕਰੋ' :
+              'Reduce stress'
       ]
     };
   };
@@ -512,7 +556,6 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
       case 'red': return 'bg-red-100 text-red-800 border-red-200';
       case 'orange': return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'yellow': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'green': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -536,12 +579,6 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
         mr: 'मध्यम - डॉक्टरांना भेटा',
         pa: 'ਦਰਮਿਆਨਾ - ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ',
         en: 'Moderate - See Doctor'
-      },
-      green: {
-        hi: 'हल्का - सामान्य देखभाल',
-        mr: 'हलका - सामान्य काळजी',
-        pa: 'ਹਲਕਾ - ਆਮ ਦੇਖਭਾਲ',
-        en: 'Mild - General Care'
       }
     };
     return severityTexts[severity][language];
@@ -599,11 +636,29 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
               <Bot className="w-5 h-5 text-teal-600" />
               <h1 className="font-medium">
                 {language === 'hi' ? 'AI लक्षण जांच' :
-                 language === 'mr' ? 'AI लक्षण तपासणी' :
-                 language === 'pa' ? 'AI ਲੱਛਣ ਜਾਂਚ' : 'AI Symptom Checker'}
+                  language === 'mr' ? 'AI लक्षण तपासणी' :
+                    language === 'pa' ? 'AI ਲੱਛਣ ਜਾਂਚ' : 'AI Symptom Checker'}
               </h1>
             </div>
           </div>
+
+          {/* Progress indicator */}
+          {!analysisResult && currentQuestions.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>
+                {language === 'hi' ? `प्रश्न ${conversationStep + 1} / ${Math.min(currentQuestions.length, 6)}` :
+                  language === 'mr' ? `प्रश्न ${conversationStep + 1} / ${Math.min(currentQuestions.length, 6)}` :
+                    language === 'pa' ? `ਸ��ਾਲ ${conversationStep + 1} / ${Math.min(currentQuestions.length, 6)}` :
+                      `Question ${conversationStep + 1} / ${Math.min(currentQuestions.length, 6)}`}
+              </span>
+              <div className="w-20 bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-teal-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${((conversationStep + 1) / Math.min(currentQuestions.length, 6)) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -616,11 +671,10 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
               className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl p-3 ${
-                  message.type === 'user'
+                className={`max-w-[85%] rounded-2xl p-3 ${message.type === 'user'
                     ? 'bg-teal-600 text-white rounded-br-lg'
                     : 'bg-gray-100 text-gray-800 rounded-bl-lg'
-                }`}
+                  }`}
               >
                 {message.type === 'bot' && (
                   <div className="flex items-center gap-2 mb-1">
@@ -631,7 +685,7 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm leading-relaxed flex-1">{message.content}</p>
                   {message.type === 'bot' && (
-                    <VoiceReader 
+                    <VoiceReader
                       text={message.content}
                       size="sm"
                       className="flex-shrink-0 mt-1"
@@ -641,7 +695,7 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
               </div>
             </div>
           ))}
-          
+
           {isAnalyzing && (
             <div className="flex justify-start">
               <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-bl-lg p-3 max-w-[85%]">
@@ -653,8 +707,8 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div>
                   <span className="text-sm">
                     {language === 'hi' ? 'विश्लेषण कर रहा हूं...' :
-                     language === 'mr' ? 'विश्लेषण करत आहे...' :
-                     language === 'pa' ? 'ਵਿਸ਼ਲੇਸ਼ਣ ਕਰ ਰਿਹਾ ਹਾਂ...' : 'Analyzing...'}
+                      language === 'mr' ? 'विश्लेषण करत आहे...' :
+                        language === 'pa' ? 'ਵਿਸ਼ਲੇਸ਼ਣ ਕਰ ਰਿਹਾ ਹਾਂ...' : 'Analyzing...'}
                   </span>
                 </div>
               </div>
@@ -669,8 +723,8 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                   <Bot className="w-4 h-4 text-teal-600" />
                   <span className="text-xs text-gray-500">
                     {language === 'hi' ? 'विकल्प चुनें:' :
-                     language === 'mr' ? 'पर्याय निवडा:' :
-                     language === 'pa' ? 'ਵਿਕਲਪ ਚੁਣੋ:' : 'Choose option:'}
+                      language === 'mr' ? 'पर्याय निवडा:' :
+                        language === 'pa' ? 'ਵਿਕਲਪ ਚੁਣੋ:' : 'Choose option:'}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -680,7 +734,7 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                       variant="outline"
                       size="sm"
                       className="text-xs h-auto py-2 px-3 text-left"
-                      onClick={() => setCurrentInput(option)}
+                      onClick={() => handleOptionClick(option)}
                       disabled={isAnalyzing}
                     >
                       {option}
@@ -690,7 +744,7 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -701,59 +755,59 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
               <CardTitle className="flex items-center gap-2 text-lg">
                 <AlertCircle className="w-5 h-5 text-teal-600" />
                 {language === 'hi' ? 'AI विश्लेषण परिणाम' :
-                 language === 'mr' ? 'AI विश्लेषण परिसंवाद' :
-                 language === 'pa' ? 'AI ਵਿਸ਼ਲੇਸ਼ਣ ਨਤੀਜੇ' : 'AI Analysis Result'}
+                  language === 'mr' ? 'AI विश्लेषण परिसंवाद' :
+                    language === 'pa' ? 'AI ਵਿਸ਼ਲੇਸ਼ਣ ਨਤੀਜੇ' : 'AI Analysis Result'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <h4 className="text-sm mb-1">
                   {language === 'hi' ? 'संभावित स्थिति:' :
-                   language === 'mr' ? 'संभाव्य स्थिती:' :
-                   language === 'pa' ? 'ਸੰਭਾਵਿਤ ਸਥਿਤੀ:' : 'Possible Condition:'}
+                    language === 'mr' ? 'संभाव्य स्थिती:' :
+                      language === 'pa' ? 'ਸੰਭਾਵਿਤ ਸਥਿਤੀ:' : 'Possible Condition:'}
                 </h4>
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium flex-1">{analysisResult.condition}</p>
-                  <VoiceReader 
+                  <VoiceReader
                     text={analysisResult.condition}
                     size="sm"
                     className="flex-shrink-0 mt-1"
                   />
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="text-sm mb-2">
                   {language === 'hi' ? 'गंभीरता स्तर:' :
-                   language === 'mr' ? 'गंभीरता पातळी:' :
-                   language === 'pa' ? 'ਗੰਭੀਰਤਾ ਪੱਧਰ:' : 'Severity Level:'}
+                    language === 'mr' ? 'गंभीरता पातळी:' :
+                      language === 'pa' ? 'ਗੰਭੀਰਤਾ ਪੱਧਰ:' : 'Severity Level:'}
                 </h4>
                 <Badge className={getSeverityColor(analysisResult.severity)}>
                   {getSeverityText(analysisResult.severity)}
                 </Badge>
-                
+
                 {/* Severity explanation */}
                 <div className="mt-2 p-3 rounded-lg text-sm" style={{
-                  backgroundColor: analysisResult.severity === 'red' ? '#fef2f2' : 
-                                   analysisResult.severity === 'orange' ? '#fff7ed' : '#fffbeb',
-                  borderColor: analysisResult.severity === 'red' ? '#fecaca' : 
-                               analysisResult.severity === 'orange' ? '#fed7aa' : '#fde68a',
+                  backgroundColor: analysisResult.severity === 'red' ? '#fef2f2' :
+                    analysisResult.severity === 'orange' ? '#fff7ed' : '#fffbeb',
+                  borderColor: analysisResult.severity === 'red' ? '#fecaca' :
+                    analysisResult.severity === 'orange' ? '#fed7aa' : '#fde68a',
                   border: '1px solid'
                 }}>
                   {analysisResult.severity === 'red' && (
                     <div>
                       <p className="font-medium text-red-800 mb-1">
                         {language === 'hi' ? '🔴 लाल क्षेत्र - जीवन के लिए खतरनाक, तत्काल देखभाल आवश्यक' :
-                         language === 'mr' ? '🔴 लाल झोन - जीवघेणी, तत्काळ काळजी आवश्यक' :
-                         language === 'pa' ? '🔴 ਲਾਲ ਜ਼ੋਨ - ਜ਼ਿੰਦਗੀ ਲਈ ਖ਼ਤਰਨਾਕ, ਤੁਰੰਤ ਦੇਖਭਾਲ ਲੋੜੀਂਦੀ' :
-                         '🔴 RED ZONE - Life threatening, Immediate care needed'}
+                          language === 'mr' ? '🔴 लाल झोन - जीवघेणी, तत्काळ काळजी आवश्यक' :
+                            language === 'pa' ? '🔴 ਲਾਲ ਜ਼ੋਨ - ਜ਼ਿੰਦਗੀ ਲਈ ਖ਼ਤਰਨਾਕ, ਤੁਰੰਤ ਦੇਖਭਾਲ ਲੋੜੀਂਦੀ' :
+                              '🔴 RED ZONE - Life threatening, Immediate care needed'}
                       </p>
                       <div className="bg-red-50 p-3 rounded-lg border border-red-200 mt-2">
                         <p className="text-red-700 text-sm mb-2">
                           {language === 'hi' ? 'इस स्थिति के उदाहरण:' :
-                           language === 'mr' ? 'या स्थितीची उदाहरणे:' :
-                           language === 'pa' ? 'ਇਸ ਸਥਿਤੀ ਦੀਆਂ ਉਦਾਹਰਣਾਂ:' :
-                           'Examples of this condition:'}
+                            language === 'mr' ? 'या स्थितीची उदाहरणे:' :
+                              language === 'pa' ? 'ਇਸ ਸਥਿਤੀ ਦੀਆਂ ਉਦਾਹਰਣਾਂ:' :
+                                'Examples of this condition:'}
                         </p>
                         <ul className="text-red-700 text-xs space-y-1">
                           <li>• {language === 'hi' ? 'हृदयाघात (दिल का दौरा)' : language === 'mr' ? 'हृदयविकाराचा झटका' : language === 'pa' ? 'ਦਿਲ ਦਾ ਦੌਰਾ' : 'Heart Attack / Cardiac Arrest'}</li>
@@ -767,21 +821,21 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                       </p>
                     </div>
                   )}
-                  
+
                   {analysisResult.severity === 'orange' && (
                     <div>
                       <p className="font-medium text-orange-800 mb-1">
                         {language === 'hi' ? '🟠 नारंगी क्षेत्र - गंभीर, तत्काल चिकित्सा सहायता आवश्यक' :
-                         language === 'mr' ? '🟠 नारिंगी झोन - गंभीर, तत्काळ वैद्यकीय मदत आवश्यक' :
-                         language === 'pa' ? '🟠 ਸੰਤਰੀ ਜ਼ੋਨ - ਗੰਭੀਰ, ਤੁਰੰਤ ਮੈਡੀਕਲ ਮਦਦ ਲੋੜੀਂਦੀ' :
-                         '🟠 ORANGE ZONE - Serious, Requires urgent medical attention'}
+                          language === 'mr' ? '🟠 नारिंगी झोन - गंभीर, तत्काळ वैद्यकीय मदत आवश्यक' :
+                            language === 'pa' ? '🟠 ਸੰਤਰੀ ਜ਼ੋਨ - ਗੰਭੀਰ, ਤੁਰੰਤ ਮੈਡੀਕਲ ਮਦਦ ਲੋੜੀਂਦੀ' :
+                              '🟠 ORANGE ZONE - Serious, Requires urgent medical attention'}
                       </p>
                       <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 mt-2">
                         <p className="text-orange-700 text-sm mb-2">
                           {language === 'hi' ? 'इस स्थिति के उदाहरण:' :
-                           language === 'mr' ? 'या स्थितीची उदाहरणे:' :
-                           language === 'pa' ? 'ਇਸ ਸਥਿਤੀ ਦੀਆਂ ਉਦਾਹਰਣਾਂ:' :
-                           'Examples of this condition:'}
+                            language === 'mr' ? 'या स्थितीची उदाहरणे:' :
+                              language === 'pa' ? 'ਇਸ ਸਥਿਤੀ ਦੀਆਂ ਉਦਾਹਰਣਾਂ:' :
+                                'Examples of this condition:'}
                         </p>
                         <ul className="text-orange-700 text-xs space-y-1">
                           <li>• {language === 'hi' ? 'गंभीर निमोनिया (सांस लेने में कठिनाई)' : language === 'mr' ? 'गंभीर निमोनिया (श्वास घेण्यात अडचण)' : language === 'pa' ? 'ਗੰਭੀਰ ਨਮੂਨੀਆ (ਸਾਹ ਲੈਣ ਵਿੱਚ ਮੁਸ਼ਕਲ)' : 'Severe Pneumonia (breathing difficulty)'}</li>
@@ -795,21 +849,21 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                       </p>
                     </div>
                   )}
-                  
+
                   {analysisResult.severity === 'yellow' && (
                     <div>
                       <p className="font-medium text-yellow-800 mb-1">
                         {language === 'hi' ? '🟡 पीला क्षेत्र - मध्यम, चिकित्सा सहायता आवश्यक' :
-                         language === 'mr' ? '🟡 पिवळा झोन - मध्यम, वैद्यकीय मदत आवश्यक' :
-                         language === 'pa' ? '🟡 ਪੀਲਾ ਜ਼ੋਨ - ਦਰਮਿਆਨਾ, ਮੈਡੀਕਲ ਮਦਦ ਲੋੜੀਂਦੀ' :
-                         '🟡 YELLOW ZONE - Moderate, Needs medical attention'}
+                          language === 'mr' ? '🟡 पिवळा झोन - मध्यम, वैद्यकीय मदत आवश्यक' :
+                            language === 'pa' ? '🟡 ਪੀਲਾ ਜ਼ੋਨ - ਦਰਮਿਆਨਾ, ਮੈਡੀਕਲ ਮਦਦ ਲੋੜੀਂਦੀ' :
+                              '🟡 YELLOW ZONE - Moderate, Needs medical attention'}
                       </p>
                       <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 mt-2">
                         <p className="text-yellow-700 text-sm mb-2">
                           {language === 'hi' ? 'इस स्थिति के उदाहरण:' :
-                           language === 'mr' ? 'या स्थितीची उदाहरणे:' :
-                           language === 'pa' ? 'ਇਸ ਸਥਿਤੀ ਦੀਆਂ ਉਦਾਹਰਣਾਂ:' :
-                           'Examples of this condition:'}
+                            language === 'mr' ? 'या स्थितीची उदाहरणे:' :
+                              language === 'pa' ? 'ਇਸ ਸਥਿਤੀ ਦੀਆਂ ਉਦਾਹਰਣਾਂ:' :
+                                'Examples of this condition:'}
                         </p>
                         <ul className="text-yellow-700 text-xs space-y-1">
                           <li>• {language === 'hi' ? 'टाइफाइड बुखार (जटिलताओं के बिना)' : language === 'mr' ? 'टायफॉइड ताप (गुंतागुंत नसलेला)' : language === 'pa' ? 'ਟਾਈਫਾਈਡ ਬੁਖ਼ਾਰ (ਜਟਿਲਤਾਵਾਂ ਤੋਂ ਬਿਨਾਂ)' : 'Typhoid Fever (without complications)'}</li>
@@ -823,42 +877,15 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                       </p>
                     </div>
                   )}
-                  
-                  {analysisResult.severity === 'green' && (
-                    <div>
-                      <p className="font-medium text-green-800 mb-1">
-                        {language === 'hi' ? '🟢 हरा क्षेत्र - हल्का, सामान्य देखभाल' :
-                         language === 'mr' ? '🟢 हिरवा झोन - हलका, सामान्य काळजी' :
-                         language === 'pa' ? '🟢 ਹਰਾ ਜ਼ੋਨ - ਹਲਕਾ, ਆਮ ਦੇਖਭਾਲ' :
-                         '🟢 GREEN ZONE - Mild, General care'}
-                      </p>
-                      <div className="bg-green-50 p-3 rounded-lg border border-green-200 mt-2">
-                        <p className="text-green-700 text-sm mb-2">
-                          {language === 'hi' ? 'इस स्थिति के उदाहरण:' :
-                           language === 'mr' ? 'या स्थितीची उदाहरणे:' :
-                           language === 'pa' ? 'ਇਸ ਸਥਿਤੀ ਦੀਆਂ ਉਦਾਹਰਣਾਂ:' :
-                           'Examples of this condition:'}
-                        </p>
-                        <ul className="text-green-700 text-xs space-y-1">
-                          <li>• {language === 'hi' ? 'सामान्य सर्दी-जुकाम' : language === 'mr' ? 'सामान्य सर्दी-खोकला' : language === 'pa' ? 'ਆਮ ਸਰਦੀ-ਖੰਘ' : 'Common Cold/Cough'}</li>
-                          <li>• {language === 'hi' ? 'हल्का सिरदर्द या बुखार' : language === 'mr' ? 'हलके डोकेदुखी किंवा ताप' : language === 'pa' ? 'ਹਲਕਾ ਸਿਰ ਦਰਦ ਜਾਂ ਬੁਖ਼ਾਰ' : 'Mild headache or fever'}</li>
-                          <li>• {language === 'hi' ? 'मांसपेशियों में खिंचाव' : language === 'mr' ? 'स्नायूंमध्ये ताणतणाव' : language === 'pa' ? 'ਮਾਂਸਪੇਸ਼ੀਆਂ ਵਿੱਚ ਖਿੱਚ' : 'Muscle strain'}</li>
-                          <li>• {language === 'hi' ? 'सामान्य थकान' : language === 'mr' ? 'सामान्य थकवा' : language === 'pa' ? 'ਆਮ ਥਕਾਵਟ' : 'General fatigue'}</li>
-                        </ul>
-                      </div>
-                      <p className="text-green-700 mt-2">
-                        <strong>{language === 'hi' ? 'कार्य:' : language === 'mr' ? 'कार्य:' : language === 'pa' ? 'ਕਾਰਜ:' : 'Action:'}</strong> {language === 'hi' ? 'घरेलू उपचार और आराम करें। आवश्यकता हो तो डॉक्टर से मिलें।' : language === 'mr' ? 'घरगुती उपचार आणि आराम करा. गरज भासल्यास डॉक्टरांना भेटा.' : language === 'pa' ? 'ਘਰੇਲੂ ਇਲਾਜ ਅਤੇ ਆਰਾਮ ਕਰੋ। ਲੋੜ ਹੋਵੇ ਤਾਂ ਡਾਕਟਰ ਨੂੰ ਮਿਲੋ।' : 'Home care and rest. See doctor if needed.'}
-                      </p>
-                    </div>
-                  )}
+
                 </div>
               </div>
 
               <div>
                 <h4 className="text-sm mb-2">
                   {language === 'hi' ? 'अनुशंसित डॉक्टर:' :
-                   language === 'mr' ? 'शिफारशीत डॉक्टर:' :
-                   language === 'pa' ? 'ਸਿਫ਼ਾਰਸ਼ੀ ਡਾਕਟਰ:' : 'Recommended Doctor:'}
+                    language === 'mr' ? 'शिफारशीत डॉक्टर:' :
+                      language === 'pa' ? 'ਸਿਫ਼ਾਰਸ਼ੀ ਡਾਕਟਰ:' : 'Recommended Doctor:'}
                 </h4>
                 <div className="flex items-center gap-2 p-2 bg-teal-50 rounded-lg border border-teal-200">
                   <div className="w-2 h-2 bg-teal-600 rounded-full"></div>
@@ -871,8 +898,8 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
               <div>
                 <h4 className="text-sm mb-2">
                   {language === 'hi' ? 'सुझाव:' :
-                   language === 'mr' ? 'सूचना:' :
-                   language === 'pa' ? 'ਸੁਝਾਅ:' : 'Recommendations:'}
+                    language === 'mr' ? 'सूचना:' :
+                      language === 'pa' ? 'ਸੁਝਾਅ:' : 'Recommendations:'}
                 </h4>
                 <ul className="space-y-1">
                   {analysisResult.recommendations.map((rec, index) => (
@@ -886,14 +913,14 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
 
               {showConsultationOption && (
                 <div className="pt-4 border-t">
-                  <Button 
+                  <Button
                     onClick={handleBookConsultation}
                     className="w-full bg-teal-600 hover:bg-teal-700"
                   >
                     {language === 'hi' ? `${getDoctorTypeText(analysisResult.doctorType)} से सलाह लें` :
-                     language === 'mr' ? `${getDoctorTypeText(analysisResult.doctorType)} चा सल्ला घ्या` :
-                     language === 'pa' ? `${getDoctorTypeText(analysisResult.doctorType)} ਦੀ ਸਲਾਹ ਲਓ` : 
-                     `Consult ${getDoctorTypeText(analysisResult.doctorType)}`}
+                      language === 'mr' ? `${getDoctorTypeText(analysisResult.doctorType)} चा सल्ला घ्या` :
+                        language === 'pa' ? `${getDoctorTypeText(analysisResult.doctorType)} ਦੀ ਸਲਾਹ ਲਓ` :
+                          `Consult ${getDoctorTypeText(analysisResult.doctorType)}`}
                   </Button>
                 </div>
               )}
@@ -912,8 +939,8 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                 <div className="mb-3">
                   <p className="text-sm text-gray-600 mb-2">
                     {language === 'hi' ? 'अपलोड की गई तस्वीरें:' :
-                     language === 'mr' ? 'अपलोड केलेले फोटो:' :
-                     language === 'pa' ? 'ਅਪਲੋਡ ਕੀਤੀਆਂ ਫੋਟੋਆਂ:' : 'Uploaded Images:'}
+                      language === 'mr' ? 'अपलोड केलेले फोटो:' :
+                        language === 'pa' ? 'ਅਪਲੋਡ ਕੀਤੀਆਂ ਫੋਟੋਆਂ:' : 'Uploaded Images:'}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {uploadedImages.map((image, index) => (
@@ -939,13 +966,13 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                 <VoiceInput
                   value={currentInput}
                   onChange={setCurrentInput}
-                  placeholder={conversationStep === 0 ? 
+                  placeholder={conversationStep === 0 ?
                     (language === 'hi' ? 'अपने लक्षणों का वर्णन करें...' :
-                     language === 'mr' ? 'तुमच्या लक्षणांचे वर्णन करा...' :
-                     language === 'pa' ? 'ਆਪਣੇ ਲੱਛਣਾਂ ਦਾ ਵਰਣਨ ਕਰੋ...' : 'Describe your symptoms...') : 
+                      language === 'mr' ? 'तुमच्या लक्षणांचे वर्णन करा...' :
+                        language === 'pa' ? 'ਆਪਣੇ ਲੱਛਣਾਂ ਦਾ ਵਰਣਨ ਕਰੋ...' : 'Describe your symptoms...') :
                     (language === 'hi' ? 'आपका उत्तर...' :
-                     language === 'mr' ? 'तुमचे उत्तर...' :
-                     language === 'pa' ? 'ਤੁਹਾਡਾ ਜਵਾਬ...' : 'Your answer...')}
+                      language === 'mr' ? 'तुमचे उत्तर...' :
+                        language === 'pa' ? 'ਤੁਹਾਡਾ ਜਵਾਬ...' : 'Your answer...')}
                   disabled={isAnalyzing}
                   multiline={true}
                   rows={2}
@@ -960,15 +987,15 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                 >
                   <Camera className="w-4 h-4" />
                 </Button>
-                <Button 
-                  onClick={handleSendMessage} 
+                <Button
+                  onClick={handleSendMessage}
                   disabled={(!currentInput.trim() && uploadedImages.length === 0) || isAnalyzing}
                   className="bg-teal-600 hover:bg-teal-700"
                 >
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
-              
+
               {/* Hidden file input */}
               <input
                 ref={fileInputRef}
@@ -978,36 +1005,16 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              
-              {/* Progress indicator and examples */}
+
+              {/* Examples */}
               <div className="mt-3">
-                {conversationStep > 0 && (
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>
-                        {language === 'hi' ? 'प्रगति:' :
-                         language === 'mr' ? 'प्रगती:' :
-                         language === 'pa' ? 'ਪ੍ਰਗਤੀ:' : 'Progress:'}
-                      </span>
-                      <span>
-                        {conversationStep + 1} / {Math.min(currentQuestions.length, 6)}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1">
-                      <div 
-                        className="bg-teal-600 h-1 rounded-full transition-all duration-300" 
-                        style={{ width: `${((conversationStep + 1) / Math.min(currentQuestions.length, 6)) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-                
+
                 {conversationStep === 0 && (
                   <div>
                     <p className="text-xs text-gray-500 mb-2">
                       {language === 'hi' ? 'उदाहरण:' :
-                       language === 'mr' ? 'उदाहरणे:' :
-                       language === 'pa' ? 'ਉਦਾਹਰਣਾਂ:' : 'Examples:'}
+                        language === 'mr' ? 'उदाहरणे:' :
+                          language === 'pa' ? 'ਉਦਾਹਰਣਾਂ:' : 'Examples:'}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {[
@@ -1022,7 +1029,7 @@ export function SymptomChecker({ user, language, onBack, onAnalysisComplete, sho
                           variant="outline"
                           size="sm"
                           className="text-xs h-auto py-1 px-2"
-                          onClick={() => setCurrentInput(example)}
+                          onClick={() => handleOptionClick(example)}
                           disabled={isAnalyzing}
                         >
                           {example}
